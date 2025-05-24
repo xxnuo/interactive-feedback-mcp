@@ -2,22 +2,31 @@
 # Developed by Fábio Ferreira (https://x.com/fabiomlferreira)
 # Inspired by/related to dotcursorrules.com (https://dotcursorrules.com/)
 # Enhanced by Pau Oliva (https://x.com/pof) with ideas from https://github.com/ttommyth/interactive-mcp
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
-from typing import Optional, TypedDict, List
+from typing import List, Optional, TypedDict
 
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QColor, QIcon, QKeyEvent, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QCheckBox, QTextEdit, QGroupBox,
-    QFrame
+    QApplication,
+    QCheckBox,
+    QFrame,
+    QGroupBox,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QObject, QTimer, QSettings
-from PySide6.QtGui import QTextCursor, QIcon, QKeyEvent, QPalette, QColor
+
 
 class FeedbackResult(TypedDict):
     interactive_feedback: str
+
 
 def get_dark_mode_palette(app: QApplication):
     darkPalette = app.palette()
@@ -40,9 +49,12 @@ def get_dark_mode_palette(app: QApplication):
     darkPalette.setColor(QPalette.Highlight, QColor(42, 130, 218))
     darkPalette.setColor(QPalette.Disabled, QPalette.Highlight, QColor(80, 80, 80))
     darkPalette.setColor(QPalette.HighlightedText, Qt.white)
-    darkPalette.setColor(QPalette.Disabled, QPalette.HighlightedText, QColor(127, 127, 127))
+    darkPalette.setColor(
+        QPalette.Disabled, QPalette.HighlightedText, QColor(127, 127, 127)
+    )
     darkPalette.setColor(QPalette.PlaceholderText, QColor(127, 127, 127))
     return darkPalette
+
 
 class FeedbackTextEdit(QTextEdit):
     def __init__(self, parent=None):
@@ -59,6 +71,7 @@ class FeedbackTextEdit(QTextEdit):
         else:
             super().keyPressEvent(event)
 
+
 class FeedbackUI(QMainWindow):
     def __init__(self, prompt: str, predefined_options: Optional[List[str]] = None):
         super().__init__()
@@ -66,15 +79,15 @@ class FeedbackUI(QMainWindow):
         self.predefined_options = predefined_options or []
 
         self.feedback_result = None
-        
+
         self.setWindowTitle("Interactive Feedback MCP")
         script_dir = os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(script_dir, "images", "feedback.png")
         self.setWindowIcon(QIcon(icon_path))
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        
+
         self.settings = QSettings("InteractiveFeedbackMCP", "InteractiveFeedbackMCP")
-        
+
         # Load general UI settings for the main window (geometry, state)
         self.settings.beginGroup("MainWindow_General")
         geometry = self.settings.value("geometry")
@@ -89,7 +102,7 @@ class FeedbackUI(QMainWindow):
         state = self.settings.value("windowState")
         if state:
             self.restoreState(state)
-        self.settings.endGroup() # End "MainWindow_General" group
+        self.settings.endGroup()  # End "MainWindow_General" group
 
         self._create_ui()
 
@@ -113,14 +126,14 @@ class FeedbackUI(QMainWindow):
             options_frame = QFrame()
             options_layout = QVBoxLayout(options_frame)
             options_layout.setContentsMargins(0, 10, 0, 10)
-            
+
             for option in self.predefined_options:
                 checkbox = QCheckBox(option)
                 self.option_checkboxes.append(checkbox)
                 options_layout.addWidget(checkbox)
-            
+
             feedback_layout.addWidget(options_frame)
-            
+
             # Add a separator
             separator = QFrame()
             separator.setFrameShape(QFrame.HLine)
@@ -132,10 +145,16 @@ class FeedbackUI(QMainWindow):
         font_metrics = self.feedback_text.fontMetrics()
         row_height = font_metrics.height()
         # Calculate height for 5 lines + some padding for margins
-        padding = self.feedback_text.contentsMargins().top() + self.feedback_text.contentsMargins().bottom() + 5 # 5 is extra vertical padding
+        padding = (
+            self.feedback_text.contentsMargins().top()
+            + self.feedback_text.contentsMargins().bottom()
+            + 5
+        )  # 5 is extra vertical padding
         self.feedback_text.setMinimumHeight(5 * row_height + padding)
 
-        self.feedback_text.setPlaceholderText("Enter your feedback here (Ctrl+Enter to submit)")
+        self.feedback_text.setPlaceholderText(
+            "Enter your feedback here (Ctrl+Enter to submit)"
+        )
         submit_button = QPushButton("&Send Feedback")
         submit_button.clicked.connect(self._submit_feedback)
 
@@ -143,7 +162,15 @@ class FeedbackUI(QMainWindow):
         feedback_layout.addWidget(submit_button)
 
         # Set minimum height for feedback_group
-        self.feedback_group.setMinimumHeight(self.description_label.sizeHint().height() + self.feedback_text.minimumHeight() + submit_button.sizeHint().height() + feedback_layout.spacing() * 2 + feedback_layout.contentsMargins().top() + feedback_layout.contentsMargins().bottom() + 10)
+        self.feedback_group.setMinimumHeight(
+            self.description_label.sizeHint().height()
+            + self.feedback_text.minimumHeight()
+            + submit_button.sizeHint().height()
+            + feedback_layout.spacing() * 2
+            + feedback_layout.contentsMargins().top()
+            + feedback_layout.contentsMargins().bottom()
+            + 10
+        )
 
         # Add widgets
         layout.addWidget(self.feedback_group)
@@ -151,27 +178,27 @@ class FeedbackUI(QMainWindow):
     def _submit_feedback(self):
         feedback_text = self.feedback_text.toPlainText().strip()
         selected_options = []
-        
+
         # Get selected predefined options if any
         if self.option_checkboxes:
             for i, checkbox in enumerate(self.option_checkboxes):
                 if checkbox.isChecked():
                     selected_options.append(self.predefined_options[i])
-        
+
         # Combine selected options and feedback text
         final_feedback_parts = []
-        
+
         # Add selected options
         if selected_options:
             final_feedback_parts.append("; ".join(selected_options))
-        
+
         # Add user's text feedback
         if feedback_text:
             final_feedback_parts.append(feedback_text)
-            
+
         # Join with a newline if both parts exist
         final_feedback = "\n\n".join(final_feedback_parts)
-            
+
         self.feedback_result = FeedbackResult(
             interactive_feedback=final_feedback,
         )
@@ -195,7 +222,12 @@ class FeedbackUI(QMainWindow):
 
         return self.feedback_result
 
-def feedback_ui(prompt: str, predefined_options: Optional[List[str]] = None, output_file: Optional[str] = None) -> Optional[FeedbackResult]:
+
+def feedback_ui(
+    prompt: str,
+    predefined_options: Optional[List[str]] = None,
+    output_file: Optional[str] = None,
+) -> Optional[FeedbackResult]:
     app = QApplication.instance() or QApplication()
     app.setPalette(get_dark_mode_palette(app))
     app.setStyle("Fusion")
@@ -204,7 +236,10 @@ def feedback_ui(prompt: str, predefined_options: Optional[List[str]] = None, out
 
     if output_file and result:
         # Ensure the directory exists
-        os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(output_file) if os.path.dirname(output_file) else ".",
+            exist_ok=True,
+        )
         # Save the result to the output file
         with open(output_file, "w") as f:
             json.dump(result, f)
@@ -212,15 +247,30 @@ def feedback_ui(prompt: str, predefined_options: Optional[List[str]] = None, out
 
     return result
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the feedback UI")
-    parser.add_argument("--prompt", default="I implemented the changes you requested.", help="The prompt to show to the user")
-    parser.add_argument("--predefined-options", default="", help="Pipe-separated list of predefined options (|||)")
-    parser.add_argument("--output-file", help="Path to save the feedback result as JSON")
+    parser.add_argument(
+        "--prompt",
+        default="I implemented the changes you requested.",
+        help="The prompt to show to the user",
+    )
+    parser.add_argument(
+        "--predefined-options",
+        default="",
+        help="Pipe-separated list of predefined options (|||)",
+    )
+    parser.add_argument(
+        "--output-file", help="Path to save the feedback result as JSON"
+    )
     args = parser.parse_args()
 
-    predefined_options = [opt for opt in args.predefined_options.split("|||") if opt] if args.predefined_options else None
-    
+    predefined_options = (
+        [opt for opt in args.predefined_options.split("|||") if opt]
+        if args.predefined_options
+        else None
+    )
+
     result = feedback_ui(args.prompt, predefined_options, args.output_file)
     if result:
         print(f"\nFeedback received:\n{result['interactive_feedback']}")

@@ -2,13 +2,12 @@
 # Developed by Fábio Ferreira (https://x.com/fabiomlferreira)
 # Inspired by/related to dotcursorrules.com (https://dotcursorrules.com/)
 # Enhanced by Pau Oliva (https://x.com/pof) with ideas from https://github.com/ttommyth/interactive-mcp
-import os
-import sys
 import json
-import tempfile
+import os
 import subprocess
-
-from typing import Annotated, Dict
+import sys
+import tempfile
+from typing import Dict
 
 from fastmcp import FastMCP
 from pydantic import Field
@@ -16,7 +15,10 @@ from pydantic import Field
 # The log_level is necessary for Cline to work: https://github.com/jlowin/fastmcp/issues/81
 mcp = FastMCP("Interactive Feedback MCP", log_level="ERROR")
 
-def launch_feedback_ui(summary: str, predefinedOptions: list[str] | None = None) -> dict[str, str]:
+
+def launch_feedback_ui(
+    summary: str, predefinedOptions: list[str] | None = None
+) -> dict[str, str]:
     # Create a temporary file for the feedback result
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
         output_file = tmp.name
@@ -33,9 +35,12 @@ def launch_feedback_ui(summary: str, predefinedOptions: list[str] | None = None)
             sys.executable,
             "-u",
             feedback_ui_path,
-            "--prompt", summary,
-            "--output-file", output_file,
-            "--predefined-options", "|||".join(predefinedOptions) if predefinedOptions else ""
+            "--prompt",
+            summary,
+            "--output-file",
+            output_file,
+            "--predefined-options",
+            "|||".join(predefinedOptions) if predefinedOptions else "",
         ]
         result = subprocess.run(
             args,
@@ -44,13 +49,13 @@ def launch_feedback_ui(summary: str, predefinedOptions: list[str] | None = None)
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
-            close_fds=True
+            close_fds=True,
         )
         if result.returncode != 0:
             raise Exception(f"Failed to launch feedback UI: {result.returncode}")
 
         # Read the result from the temporary file
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             result = json.load(f)
         os.unlink(output_file)
         return result
@@ -59,14 +64,21 @@ def launch_feedback_ui(summary: str, predefinedOptions: list[str] | None = None)
             os.unlink(output_file)
         raise e
 
+
 @mcp.tool()
 def interactive_feedback(
     message: str = Field(description="The specific question for the user"),
-    predefined_options: list = Field(default=None, description="Predefined options for the user to choose from (optional)"),
+    predefined_options: list = Field(
+        default=None,
+        description="Predefined options for the user to choose from (optional)",
+    ),
 ) -> Dict[str, str]:
     """Request interactive feedback from the user"""
-    predefined_options_list = predefined_options if isinstance(predefined_options, list) else None
+    predefined_options_list = (
+        predefined_options if isinstance(predefined_options, list) else None
+    )
     return launch_feedback_ui(message, predefined_options_list)
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
